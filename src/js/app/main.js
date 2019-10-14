@@ -30,7 +30,21 @@ import "firebase/database";
 import "firebase/firestore";
 // Local vars for rStats
 let rS, bS, glS, tS;
+const readFile = inputFile => {
+  const temporaryFileReader = new FileReader();
 
+  return new Promise((resolve, reject) => {
+    temporaryFileReader.onerror = () => {
+      temporaryFileReader.abort();
+      reject(new DOMException("Problem parsing input file."));
+    };
+
+    temporaryFileReader.onload = () => {
+      resolve(temporaryFileReader.result);
+    };
+    temporaryFileReader.readAsDataURL(inputFile);
+  });
+};
 // This class instantiates and ties all of the components together
 // starts the loading process and renders the main loop
 export default class Main {
@@ -885,9 +899,30 @@ export default class Main {
         if (obj.file) addFile(obj.file);
         return obj.toJSON();
       }),
+      files:[]
     }
 
-    this.db.ref('/sketches/test').set( exportJSON )
+    let count = 0, target = files.length
+
+    for( let file of files ) {
+      const reader = new FileReader();
+      reader.readAsDataURL( file ); 
+      reader.onloadend = () => {
+        const base64data = reader.result;                
+        exportJSON.files.push({
+          name:file.name,
+          data:base64data
+        })
+        count++
+        if( count == target ) {
+          this.db.ref('/sketches/test').set( exportJSON )
+        }else{
+          console.log( 'still working')
+        }
+      }
+    }
+
+    window.files = files
 
     return exportJSON
   }

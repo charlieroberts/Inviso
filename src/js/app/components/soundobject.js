@@ -161,7 +161,6 @@ export default class SoundObject {
     let reader = new FileReader();
     var sound = {};
 
-
     if (object) { // cones can be null at this point
       object.filename = file.name;
       object.file = file;
