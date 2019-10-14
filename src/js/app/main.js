@@ -1,8 +1,4 @@
 import * as THREE from 'three';
-import firebase from 'firebase/app';
-import TWEEN from 'tween.js';
-import OBJLoader from './../utils/objloader';
-import Helpers from './../utils/helpers';
 
 // Components
 import Renderer from './components/renderer';
@@ -24,6 +20,14 @@ import GUIWindow from './managers/guiwindow';
 // data
 import Config from './../data/config';
 
+import TWEEN from 'tween.js';
+import OBJLoader from './../utils/objloader';
+import Helpers from './../utils/helpers';
+
+import firebase from 'firebase/app';
+import "firebase/auth";
+import "firebase/database";
+import "firebase/firestore";
 // Local vars for rStats
 let rS, bS, glS, tS;
 
@@ -198,12 +202,12 @@ export default class Main {
 
     const this_ = this;
     document.getElementById('save-button').onclick = function() {
-      this.data = this_.export().then((data) => {
+      this.data = this_.export()/*.then((data) => {
         const a = document.createElement('a');
         a.href = data;
         a.download = 'export.zip';
         a.click();
-      });
+      });*/
     }
     document.getElementById('load-button').onclick = function() {
       const i = document.getElementById('import');
@@ -310,19 +314,29 @@ export default class Main {
 
     Config.isLoaded = true;
 
-    //this.initFirebase()
+    this.initFirebase()
   }
 
   initFirebase() {
     const config = {
-      apiKey: "",
+      apiKey: "AIzaSyBFFzD5c8fABhevN6FSW70biNNEj_cTvQI",
       authDomain: "bosear-test.firebaseapp.com",
-      databaseURL: "https://databaseName.firebaseio.com",
+      databaseURL: "https://bosear-test.firebaseio.com",
       storageBucket: "bosear-test.appspot.com"
     };
 
     this.firebase = firebase.initializeApp(config);
-    this.db = this.firebase.database();
+    firebase.auth().signInAnonymously().catch( err => {
+      console.log( err )
+    })
+    firebase.auth().onAuthStateChanged( user => {
+      this.db = firebase.database();
+      this.ref = this.db.ref('/sketches')
+      this.ref.on('value', state => {
+        console.log( 'state:', state.val() )
+      })
+      this.db.ref('/users').once('value').then( state => console.log( state.val() ) )
+    })
   }
 
   render() {
@@ -418,7 +432,7 @@ export default class Main {
     this.audio = a;
     this.audioInit = true
 
-    window.removeEventListener('click', this.__setupAudio )
+    window.removeEventListener( 'click', this.__setupAudio )
   }
 
   setListenerPosition(object) {
@@ -847,7 +861,38 @@ export default class Main {
       return result;
     };
   }
+
   export() {
+    const that = this
+    const files = []
+    const addFile = (file) => {
+      const fileExists = files.map(f => f.name).includes(file.name);
+      if (!fileExists) files.push(file);
+    };
+
+    const exportJSON = {
+      camera: that.camera.threeCamera.toJSON(),
+      soundObjects: that.soundObjects.map((obj) => {
+        if (obj.file) addFile(obj.file);
+
+        obj.cones.forEach((c) => {
+          if (c.file) addFile(c.file);
+        });
+
+        return obj.toJSON();
+      }),
+      soundZones: that.soundZones.map((obj) => {
+        if (obj.file) addFile(obj.file);
+        return obj.toJSON();
+      }),
+    }
+
+    this.db.ref('/sketches/test').set( exportJSON )
+
+    return exportJSON
+  }
+
+  __export() {
     const zipHelper = this.zipHelper;
     const that = this;
 
