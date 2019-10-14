@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import firebase from 'firebase/app';
 import TWEEN from 'tween.js';
 import OBJLoader from './../utils/objloader';
 import Helpers from './../utils/helpers';
@@ -32,7 +33,10 @@ export default class Main {
   constructor(container) {
     OBJLoader(THREE);
     this.overrideTriangulate();
-    this.setupAudio();
+    this.audioInit = false;
+    this.__setupAudio = this.setupAudio.bind( this );
+    window.addEventListener( 'click', this.__setupAudio );
+    //this.setupAudio();
     this.audioFiles = [];
 
     this.mouse = new THREE.Vector3();
@@ -305,6 +309,20 @@ export default class Main {
     })();
 
     Config.isLoaded = true;
+
+    //this.initFirebase()
+  }
+
+  initFirebase() {
+    const config = {
+      apiKey: "",
+      authDomain: "bosear-test.firebaseapp.com",
+      databaseURL: "https://databaseName.firebaseio.com",
+      storageBucket: "bosear-test.appspot.com"
+    };
+
+    this.firebase = firebase.initializeApp(config);
+    this.db = this.firebase.database();
   }
 
   render() {
@@ -398,13 +416,17 @@ export default class Main {
     a.destination.connect(a.context.destination);
 
     this.audio = a;
+    this.audioInit = true
+
+    window.removeEventListener('click', this.__setupAudio )
   }
 
   setListenerPosition(object) {
     const q = new THREE.Vector3();
     object.updateMatrixWorld();
     q.setFromMatrixPosition(object.matrixWorld);
-    this.audio.context.listener.setPosition(q.x, q.y, q.z);
+    if( this.audioInit )
+      this.audio.context.listener.setPosition(q.x, q.y, q.z);
 
     const m = object.matrix;
     const mx = m.elements[12];
@@ -420,7 +442,8 @@ export default class Main {
     up.applyMatrix4(m);
     up.normalize();
 
-    this.audio.context.listener.setOrientation(vec.x, vec.y, vec.z, up.x, up.y, up.z);
+    if( this.audioInit ) 
+      this.audio.context.listener.setOrientation(vec.x, vec.y, vec.z, up.x, up.y, up.z);
 
     m.elements[12] = mx;
     m.elements[13] = my;
@@ -433,20 +456,22 @@ export default class Main {
    * is a hit.
    */
   checkZones() {
-    if (this.soundZones.length > 0) {
-      const walkingRayVector = new THREE.Vector3(0, -1, 0);
-      this.walkingRay.set(this.head.position, walkingRayVector);
+    if( this.audioInit ) {
+      if (this.soundZones.length > 0) {
+        const walkingRayVector = new THREE.Vector3(0, -1, 0);
+        this.walkingRay.set(this.head.position, walkingRayVector);
 
-      for (const i in this.soundZones) {
-        const intersects = this.walkingRay.intersectObject(this.soundZones[i].shape);
-        if (intersects.length > 0) {
-          /**
-           * Flagging a zone "under user" to activate the audio file associated
-           * with the sound zone.
-           */
-          this.soundZones[i].underUser(this.audio);
-        } else {
-          this.soundZones[i].notUnderUser(this.audio);
+        for (const i in this.soundZones) {
+          const intersects = this.walkingRay.intersectObject(this.soundZones[i].shape);
+          if (intersects.length > 0) {
+            /**
+             * Flagging a zone "under user" to activate the audio file associated
+             * with the sound zone.
+             */
+            this.soundZones[i].underUser(this.audio);
+          } else {
+            this.soundZones[i].notUnderUser(this.audio);
+          }
         }
       }
     }
@@ -822,7 +847,6 @@ export default class Main {
       return result;
     };
   }
-
   export() {
     const zipHelper = this.zipHelper;
     const that = this;
