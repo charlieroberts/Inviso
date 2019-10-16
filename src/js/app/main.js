@@ -916,12 +916,11 @@ export default class Main {
         count++
         if( count == target ) {
           this.db.ref('/sketches/test').set( exportJSON )
-        }else{
-          console.log( 'still working')
         }
       }
     }
 
+    // XXX get rid of this after testing
     window.files = files
 
     return exportJSON
