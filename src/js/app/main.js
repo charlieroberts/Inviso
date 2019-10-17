@@ -946,11 +946,9 @@ export default class Main {
       if (!fileExists) files.push(file);
     };
 
-
     const exportJSON = {
       camera: that.camera.threeCamera.toJSON(),
       soundObjects: that.soundObjects.map((obj) => {
-        console.log( 'obj:', obj )
         if (obj.file) addFile(obj.file);
 
         obj.cones.forEach((c) => {
