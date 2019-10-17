@@ -491,6 +491,13 @@ export default class Main {
     requestAnimationFrame(this.render.bind(this)); // Bind the main class instead of window object
   }
 
+  clear() {
+    this.soundZones.forEach( zone => zone.removeFromScene( this.scene ) )
+    this.soundZones.length = 0
+    this.soundObjects.forEach( obj=> obj.removeFromScene( this.scene ) )
+    this.soundObjects.length = 0
+  }
+
   setupAudio() {
     const a = {};
     window.AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -992,8 +999,8 @@ export default class Main {
         input.addEventListener( 'keyup', evt => {
           if( evt.key === 'Enter' ) {
             that.db.ref(`/sketches/${input.value}`).set( exportJSON )
-            //const newPostKey = that.db.ref( '/sketchesByUser' ).push().key;
-            //that.db.ref(`/sketchesByUser/` + newPostKey).set({ sketch:input.value, user:that.user.email })
+            const newPostKey = that.db.ref( '/sketchesByUser' ).push().key;
+            that.db.ref(`/sketchesByUser/` + newPostKey).set({ sketch:input.value, user:that.user.email })
             auth.innerHTML = ''
             auth.style.display = 'none'
             that.interactionManager.active = true
@@ -1100,6 +1107,7 @@ export default class Main {
         li.innerText = sketch.sketch
         li.style = 'cursor:pointer; text-decoration:underline'
         li.onclick = function()  {
+          app.clear()
           app.importFile( sketch.sketch )
           auth.innerHTML = ''
           auth.style.display = 'none'
