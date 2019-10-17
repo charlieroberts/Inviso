@@ -948,7 +948,7 @@ export default class Main {
     }
     const that = this
     const files = []
-    const addFile = (file) => {
+    const addFile = file => {
       const fileExists = files.map(f => f.name).includes(file.name);
       if (!fileExists) files.push(file);
     };
@@ -999,8 +999,19 @@ export default class Main {
         input.addEventListener( 'keyup', evt => {
           if( evt.key === 'Enter' ) {
             that.db.ref(`/sketches/${input.value}`).set( exportJSON )
-            const newPostKey = that.db.ref( '/sketchesByUser' ).push().key;
-            that.db.ref(`/sketchesByUser/` + newPostKey).set({ sketch:input.value, user:that.user.email })
+            that.db.ref('/sketchesByUser').orderByChild( 'user' ).equalTo( that.user.email ).once( 'value', data => {
+              const val = data.val()
+
+              // only ask for new key if not replacing previous sketch
+              let found = false
+              for( let key in val ) {
+                if( val[ key ].sketch === input.value ) found = true
+              }
+              if( found === false ) {
+                const newPostKey = that.db.ref( '/sketchesByUser' ).push().key;
+                that.db.ref(`/sketchesByUser/` + newPostKey).set({ sketch:input.value, user:that.user.email })
+              }
+            })
             auth.innerHTML = ''
             auth.style.display = 'none'
             that.interactionManager.active = true
@@ -1019,7 +1030,7 @@ export default class Main {
     }
 
     for( let file of files ) {
-      if( typeof file !== 'string' ) {
+      if( file.data === undefined ) {
         const reader = new FileReader();
         reader.readAsDataURL( file ); 
         reader.onloadend = () => {
@@ -1027,7 +1038,7 @@ export default class Main {
           finish( base64data, file )          
         }
       }else{
-        finish( file, file )
+        finish( file.data, file )
       }
     }
 
@@ -1133,7 +1144,7 @@ export default class Main {
 
       const importedData = {}
       json.files.forEach( file => {
-        importedData[ file.name ] = file.data
+        importedData[ file.name ] = file
       })
 
       if( json.soundObjects !== undefined ) {
@@ -1141,7 +1152,7 @@ export default class Main {
           let parsed = JSON.parse(obj);
 
           let newObj = this.path.createObject(this, true);
-          newObj.fromJSON(obj, importedData, false);
+          newObj.fromJSON(obj, importedData, false );
           this.setActiveObject(newObj);
           this.isAddingObject = false;
 

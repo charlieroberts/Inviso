@@ -156,7 +156,7 @@ export default class SoundObject {
     }
   }
 
-  decode( decoded, object, audio, mute, resolve ) {
+  decode( decoded, object, audio, mute, resolve, name ) {
     const context = audio.context;
     const mainMixer = context.createGain();
     const sound = {};
@@ -173,6 +173,7 @@ export default class SoundObject {
         object.sound.scriptNode.disconnect(context.destination);
       }
 
+      sound.filename = name
       sound.mainMixer = mainMixer;
 
       sound.analyser = context.createAnalyser();
@@ -231,7 +232,7 @@ export default class SoundObject {
       // if loading from file import, decode the base64 array
       if( fromGUI === false ) {
         // remove header && decode
-        const decoded = decode( file.slice(22) );
+        const decoded = decode( file.data.slice(22), file.name );
         that.decode( decoded, object, audio, mute, resolve );
       }else{
         const reader = new FileReader();
@@ -586,7 +587,7 @@ export default class SoundObject {
     });
   }
 
-  fromJSON(json, importedData, fromGUI=true) {
+  fromJSON(json, importedData, fromGUI=true ) {
     const object = JSON.parse(json);
     this.containerObject.position.copy(object.position);
     this.altitudeHelper.position.copy(object.position);
@@ -598,7 +599,7 @@ export default class SoundObject {
       if (file) {
         this.loadSound(file, this.audio, false, this, fromGUI).then((sound) => {
           this.omniSphere.sound = sound;
-          this.omniSphere.sound.name = object.filename;
+          this.omniSphere.sound.name = file.name;
           this.omniSphere.sound.volume.gain.value = object.volume;
           this.setAudioPosition(this.omniSphere);
         });
