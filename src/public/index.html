@@ -5,6 +5,7 @@
   <title>Inviso</title>
 
   <link rel="stylesheet" type="text/css" href="./assets/css/app.css">
+  <link rel="stylesheet" type="text/css" href="./assets/css/firebaseui.css">
 </head>
 <body>
   <section id="appContainer" class="main">
@@ -14,6 +15,7 @@
       <form>
         <input id="soundPicker" type="file" accept="audio/*" style="visibility:hidden">
       </form>
+      <div id="auth"></div>
       <div id="UIContainer">
         <button id="add-object-button"> + </button>
         <div id="guis"></div>
@@ -24,8 +26,13 @@
         <img id="unmute-button" src="./assets/models/mute.svg">
       </div>
 
-      <div id="save"><img id="save-button" src="./assets/models/save.svg"></div>
-      <div id="load"><img id="load-button" src="./assets/models/load.svg"></div>
+      <div id="account">
+        <ul>
+          <li id="login">login</li>
+          <li id="save">save</li>
+          <li id="load">load</li>
+        </ul>
+      </div>
 
       <div id="githubLink">
           <a href="https://github.com/CreativeCodingLab/Inviso" target="_blank">
@@ -38,7 +45,7 @@
         <p>create a <i>sound object</i>, or <b>click & drag</b> to draw a <i>sound zone</i>. </p>
       </div>
 
-      <div id="camera-label">Aerial view</div>
+      <!--<div id="camera-label">Aerial view</div>-->
 
       <div id="help-camera" class="help-bubble" style="bottom:20px; left: 50%; margin-left:60px">
         <p><b>Click & drag</b> anywhere on the screen to rotate the</p>

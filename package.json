@@ -19,8 +19,10 @@
     "build:js": "set NODE_ENV=1&& webpack"
   },
   "dependencies": {
+    "base64-arraybuffer": "^0.2.0",
     "es6-promise": "^4.0.5",
     "firebase": "^7.2.0",
+    "firebaseui": "^4.2.0",
     "sass-loader": "^6.0.6",
     "three": "^0.87.0",
     "three-obj-loader": "^1.1.0",

@@ -24,6 +24,7 @@ export default class Interaction {
     this.renderer.domElement.addEventListener('mouseup', event => this.onMouseUp(main, event, true), false);
     this.renderer.domElement.addEventListener('mousedown', event => this.onMouseDown(main, event), false);
 
+    this.active = true
     // Keyboard events
     this.keyboard.domElement.addEventListener('keydown', (event) => {
       // Only once
@@ -31,124 +32,128 @@ export default class Interaction {
         return;
       }
 
-      if (this.keyboard.eventMatches(event, 'w')) {
-        document.getElementById('help-head').style.display = 'none';
-        main.moveForward = 1 * main.movementSpeed;
-      }
-
-      if (this.keyboard.eventMatches(event, 'a')) {
-        main.yawRight = 1 * main.rotationSpeed;
-      }
-
-      if (this.keyboard.eventMatches(event, 'd')) {
-        main.yawLeft = 1 * main.rotationSpeed;
-      }
-
-      if (this.keyboard.eventMatches(event, 's')) {
-        main.moveBackwards = 1 * main.movementSpeed;
-      }
-
-      // if (this.keyboard.eventMatches(event, 'e')) {
-      //   this.data = main.export();
-      //
-      //   const a = document.createElement('a');
-      //   const blob = new Blob([this.data], {'type':'text/plain'});
-      //   a.href = window.URL.createObjectURL(blob);
-      //   a.download = 'export.json';
-      //   a.click();
-      // }
-
-      // if (this.keyboard.eventMatches(event, 'i')) {
-      //   const i = document.getElementById('import');
-      //   i.click();
-      //   i.addEventListener('change', handleFiles, false);
-      //
-      //   function handleFiles() {
-      //     const reader = new FileReader();
-      //     reader.addEventListener('load', (e) => {
-      //       main.import(e.target.result);
-      //     });
-      //     reader.readAsText(this.files[0]);
-      //   }
-      // }
-
-      if (this.keyboard.eventMatches(event, 'backspace') ||
-        this.keyboard.eventMatches(event, 'delete')) {
-
-        if (main.activeObject && main.activeObject.type === 'SoundTrajectory') {
-          if (main.activeObject.selectedPoint && main.activeObject.splinePoints.length > 2) {
-            main.activeObject.removePoint();
-          }
+      if( this.active ) {
+        if (this.keyboard.eventMatches(event, 'w')) {
+          document.getElementById('help-head').style.display = 'none';
+          main.moveForward = 1 * main.movementSpeed;
         }
 
-        if (main.activeObject && main.activeObject.type === 'SoundZone') {
-          if (main.activeObject.selectedPoint && main.activeObject.splinePoints.length > 3) {
-            main.activeObject.removePoint();
-          } else {
-            main.removeSoundZone(main.activeObject);
-            main.activeObject = null;
-          }
+        if (this.keyboard.eventMatches(event, 'a')) {
+          main.yawRight = 1 * main.rotationSpeed;
         }
 
-        if (main.activeObject && main.activeObject.type === 'SoundObject') {
-          if(main.isEditingObject){
-            if (main.interactiveCone) {
-              main.removeCone(main.activeObject, main.interactiveCone);
+        if (this.keyboard.eventMatches(event, 'd')) {
+          main.yawLeft = 1 * main.rotationSpeed;
+        }
+
+        if (this.keyboard.eventMatches(event, 's')) {
+          main.moveBackwards = 1 * main.movementSpeed;
+        }
+
+        // if (this.keyboard.eventMatches(event, 'e')) {
+        //   this.data = main.export();
+        //
+        //   const a = document.createElement('a');
+        //   const blob = new Blob([this.data], {'type':'text/plain'});
+        //   a.href = window.URL.createObjectURL(blob);
+        //   a.download = 'export.json';
+        //   a.click();
+        // }
+
+        // if (this.keyboard.eventMatches(event, 'i')) {
+        //   const i = document.getElementById('import');
+        //   i.click();
+        //   i.addEventListener('change', handleFiles, false);
+        //
+        //   function handleFiles() {
+        //     const reader = new FileReader();
+        //     reader.addEventListener('load', (e) => {
+        //       main.import(e.target.result);
+        //     });
+        //     reader.readAsText(this.files[0]);
+        //   }
+        // }
+
+        if (this.keyboard.eventMatches(event, 'backspace') ||
+          this.keyboard.eventMatches(event, 'delete')) {
+
+          if (main.activeObject && main.activeObject.type === 'SoundTrajectory') {
+            if (main.activeObject.selectedPoint && main.activeObject.splinePoints.length > 2) {
+              main.activeObject.removePoint();
             }
-          }else{
-            main.removeSoundObject(main.activeObject);
+          }
 
-            if (main.activeObject.trajectory)
-              main.removeSoundTrajectory(main.activeObject.trajectory);
+          if (main.activeObject && main.activeObject.type === 'SoundZone') {
+            if (main.activeObject.selectedPoint && main.activeObject.splinePoints.length > 3) {
+              main.activeObject.removePoint();
+            } else {
+              main.removeSoundZone(main.activeObject);
+              main.activeObject = null;
+            }
+          }
 
-            main.activeObject = null;
+          if (main.activeObject && main.activeObject.type === 'SoundObject') {
+            if(main.isEditingObject){
+              if (main.interactiveCone) {
+                main.removeCone(main.activeObject, main.interactiveCone);
+              }
+            }else{
+              main.removeSoundObject(main.activeObject);
+
+              if (main.activeObject.trajectory)
+                main.removeSoundTrajectory(main.activeObject.trajectory);
+
+              main.activeObject = null;
+            }
           }
         }
-      }
 
-      if(Config.isDev) {
-        if (this.keyboard.eventMatches(event, 'h')) {
-          const base = document.getElementsByClassName('rs-base')[0];
+        if(Config.isDev) {
+          if (this.keyboard.eventMatches(event, 'h')) {
+            const base = document.getElementsByClassName('rs-base')[0];
 
-          if (base.style.display === 'none') base.style.display = 'block';
-          else base.style.display = 'none';
+            if (base.style.display === 'none') base.style.display = 'block';
+            else base.style.display = 'none';
+          }
         }
       }
     });
 
     this.keyboard.domElement.addEventListener('keyup', (event) => {
-      // Only once
-      if (event.repeat) {
-        return;
-      }
+      if( this.active ) {
+        // Only once
+        if (event.repeat) {
+          return;
+        }
 
-      if (this.keyboard.eventMatches(event, 'w')) {
-        main.moveForward = 0;
-      }
+        if (this.keyboard.eventMatches(event, 'w')) {
+          main.moveForward = 0;
+        }
 
-      if (this.keyboard.eventMatches(event, 'a')) {
-        main.yawRight = 0;
-      }
+        if (this.keyboard.eventMatches(event, 'a')) {
+          main.yawRight = 0;
+        }
 
-      if (this.keyboard.eventMatches(event, 'd')) {
-        main.yawLeft = 0;
-      }
+        if (this.keyboard.eventMatches(event, 'd')) {
+          main.yawLeft = 0;
+        }
 
-      if (this.keyboard.eventMatches(event, 's')) {
-        main.moveBackwards = 0;
-      }
+        if (this.keyboard.eventMatches(event, 's')) {
+          main.moveBackwards = 0;
+        }
 
-      // if (this.keyboard.eventMatches(event, 'r')) {
-      //   main.reset(true);
-      // }
+        // if (this.keyboard.eventMatches(event, 'r')) {
+        //   main.reset(true);
+        // }
 
-      if (this.keyboard.eventMatches(event, 'u')) {
-        main.isUserStudyLoading = !main.isUserStudyLoading;
-        document.getElementById('help-add').style.display = 'none';
-        document.getElementById('help-camera').style.display = 'none';
-        document.getElementById('help-head').style.display = 'none';
+        if (this.keyboard.eventMatches(event, 'u')) {
+          main.isUserStudyLoading = !main.isUserStudyLoading;
+          document.getElementById('help-add').style.display = 'none';
+          document.getElementById('help-camera').style.display = 'none';
+          document.getElementById('help-head').style.display = 'none';
+        }
       }
-    });
+    })
   }
 
   onMouseOver(event) {

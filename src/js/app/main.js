@@ -28,6 +28,8 @@ import firebase from 'firebase/app';
 import "firebase/auth";
 import "firebase/database";
 import "firebase/firestore";
+import * as firebaseui from 'firebaseui'
+
 // Local vars for rStats
 let rS, bS, glS, tS;
 const readFile = inputFile => {
@@ -52,6 +54,8 @@ export default class Main {
     OBJLoader(THREE);
     this.overrideTriangulate();
     this.audioInit = false;
+    this.user = null;
+    this.authui = null;
     this.__setupAudio = this.setupAudio.bind( this );
     window.addEventListener( 'click', this.__setupAudio );
     //this.setupAudio();
@@ -161,7 +165,7 @@ export default class Main {
      */
     this.path = new PathDrawer(this.scene);
 
-    new Interaction(this, this.renderer.threeRenderer, this.scene, this.camera.threecamera, this.controls.threeControls);
+    this.interactionManager = new Interaction(this, this.renderer.threeRenderer, this.scene, this.camera.threecamera, this.controls.threeControls);
 
     // Set up rStats if dev environment
     if(Config.isDev) {
@@ -215,7 +219,9 @@ export default class Main {
     }
 
     const this_ = this;
-    document.getElementById('save-button').onclick = function() {
+
+    document.getElementById('login').onclick = this.login.bind( this );
+    document.getElementById('save').onclick = function() {
       this.data = this_.export()/*.then((data) => {
         const a = document.createElement('a');
         a.href = data;
@@ -223,21 +229,24 @@ export default class Main {
         a.click();
       });*/
     }
-    document.getElementById('load-button').onclick = function() {
-      const i = document.getElementById('import');
-      i.click();
-      i.addEventListener('change', handleFiles, false);
 
-      function handleFiles() {
-        this_.import(this.files[0]);
-      }
-    }
-    this.cameraLabel = document.getElementById('camera-label');
-    this.cameraLabel.onclick = this.reset.bind(this);
+    document.getElementById('load').onclick = this.import.bind( this )
+    //document.getElementById('load').onclick = function() {
+    //  const i = document.getElementById('import');
+    //  i.click();
+    //  i.addEventListener('change', handleFiles, false);
+
+    //  function handleFiles() {
+    //    this_.import(this.files[0]);
+    //  }
+    //}
+
+    //this.cameraLabel = document.getElementById('camera-label');
+    //this.cameraLabel.onclick = this.reset.bind(this);
     // this.cameraLabel.onclick = function (){
     //   document.getElementById('help-camera').style.display = 'none';
     // }
-    this.cameraLabel.innerHTML = this.perspectiveView ? 'Altitude view' : 'Aerial view';
+    //this.cameraLabel.innerHTML = this.perspectiveView ? 'Altitude view' : 'Aerial view';
 
     this.gui = new GUIWindow(this);
 
@@ -347,9 +356,58 @@ export default class Main {
       this.db = firebase.database();
       this.ref = this.db.ref('/sketches')
       this.ref.on('value', state => {
-        console.log( 'state:', state.val() )
+        //console.log( 'state:', state.val() )
       })
-      this.db.ref('/users').once('value').then( state => console.log( state.val() ) )
+      //this.db.ref('/users').once('value').then( state => console.log( state.val() ) )
+    })
+  }
+
+  login() {
+    const auth = document.getElementById('auth')
+    auth.style.display = 'block'
+
+    var uiConfig = {
+      callbacks: {
+        signInSuccessWithAuthResult: function(authResult, redirectUrl) {
+          return false;
+        }
+      },
+      credentialHelper: firebaseui.auth.CredentialHelper.NONE,
+      signInOptions: [
+        {
+          provider:firebase.auth.EmailAuthProvider.PROVIDER_ID,
+          requireDisplayName:false
+        }
+      ],
+    }
+    const app = this
+    if( this.authui === null ) {
+      this.authui = new firebaseui.auth.AuthUI(firebase.auth())
+    }
+    this.authui.start('#auth', uiConfig);
+    firebase.auth().onAuthStateChanged( user => {
+      if( user !== null && user.email !== null ) {
+        this.user = {
+          email: user.email,
+          authenticated:true
+        }
+        auth.style.display = 'none'
+        
+        app.db.ref('/sketchesByUser').orderByChild( 'user' ).equalTo( user.email ).on( 'value', data => {
+          this.user.files = data.val()
+          console.log( 'files:', this.user.files )
+        })
+
+        const loginBtn = document.getElementById('login')
+        loginBtn.innerText = this.user.email + ' (logout)'
+        loginBtn.onclick = ()=> {
+          firebase.auth().signOut().then( ()=> {
+            loginBtn.innerText = 'login'
+            loginBtn.onclick = app.login.bind( app )
+            app.user = null
+          })
+        }
+      }
     })
   }
 
@@ -403,11 +461,11 @@ export default class Main {
       if (!this.perspectiveView) {
         document.getElementById('help-camera').style.display = 'none';
         this.perspectiveView = true;
-        this.cameraLabel.innerHTML = 'Altitude view';
+        //this.cameraLabel.innerHTML = 'Altitude view';
       }
     } else if (this.perspectiveView) {
       this.perspectiveView = false;
-      this.cameraLabel.innerHTML = 'Aerial view';
+      //this.cameraLabel.innerHTML = 'Aerial view';
     }
 
     /* Checking if the user has walked into a sound zone in each frame. */
@@ -570,7 +628,7 @@ export default class Main {
 
   enterEditObjectView() {
     this.toggleAddTrajectory(false);
-    document.getElementById('camera-label').style.display = 'none';
+    //document.getElementById('camera-label').style.display = 'none';
 
     // disable panning in object view
     this.controls.disablePan();
@@ -598,7 +656,7 @@ export default class Main {
   }
 
   exitEditObjectView(reset){
-    document.getElementById('camera-label').style.display = 'block';
+    //document.getElementById('camera-label').style.display = 'block';
     // re-enable panning
     this.controls.enablePan();
 
@@ -877,6 +935,10 @@ export default class Main {
   }
 
   export() {
+    if( this.user === null ) {
+      alert( 'please login before saving a sketch.' )
+      return
+    }
     const that = this
     const files = []
     const addFile = (file) => {
@@ -884,9 +946,11 @@ export default class Main {
       if (!fileExists) files.push(file);
     };
 
+
     const exportJSON = {
       camera: that.camera.threeCamera.toJSON(),
       soundObjects: that.soundObjects.map((obj) => {
+        console.log( 'obj:', obj )
         if (obj.file) addFile(obj.file);
 
         obj.cones.forEach((c) => {
@@ -904,19 +968,61 @@ export default class Main {
 
     let count = 0, target = files.length
 
-    for( let file of files ) {
-      const reader = new FileReader();
-      reader.readAsDataURL( file ); 
-      reader.onloadend = () => {
-        const base64data = reader.result;                
-        exportJSON.files.push({
-          name:file.name,
-          data:base64data
+    const finish = function( str, file ) {
+      exportJSON.files.push({
+        name:file.name,
+        data:str
+      })
+      exportJSON.user = that.user.email
+
+      count++
+      if( count === target ) {
+        const auth = document.getElementById('auth')
+        auth.style.display = 'block'
+
+        const div = document.createElement('div')
+        div.setAttribute('class', 'firebaseui-container mdl-card mdl-shadow--2dp' ) 
+        div.style.padding = '1em'
+
+        const header = document.createElement( 'h1' )
+        header.setAttribute( 'class', 'firebaseui-title' )
+        header.innerText = 'Type in a name for your sketch.'         
+
+        const input = document.createElement('input')
+        input.value = 'sketch name'
+        input.setAttribute( 'class', 'mdl-textfield__input firebaseui-input' ) 
+        input.addEventListener( 'keyup', evt => {
+          if( evt.key === 'Enter' ) {
+            that.db.ref(`/sketches/${input.value}`).set( exportJSON )
+            //const newPostKey = that.db.ref( '/sketchesByUser' ).push().key;
+            //that.db.ref(`/sketchesByUser/` + newPostKey).set({ sketch:input.value, user:that.user.email })
+            auth.innerHTML = ''
+            auth.style.display = 'none'
+            that.interactionManager.active = true
+          }
+          evt.stopPropagation()
+          return true
         })
-        count++
-        if( count == target ) {
-          this.db.ref('/sketches/test').set( exportJSON )
+
+        div.appendChild( header )
+        div.appendChild( input )
+        auth.appendChild( div )
+
+        input.focus()
+        that.interactionManager.active = false
+      }
+    }
+
+    for( let file of files ) {
+      if( typeof file !== 'string' ) {
+        const reader = new FileReader();
+        reader.readAsDataURL( file ); 
+        reader.onloadend = () => {
+          const base64data = reader.result;
+          finish( base64data, file )          
         }
+      }else{
+        finish( file, file )
       }
     }
 
@@ -975,7 +1081,96 @@ export default class Main {
     return promise;
   }
 
-  import(data) {
+  import( data ) {
+    if( this.user !== null ) {
+      const app = this
+      const auth = document.getElementById('auth')
+      auth.style.display = 'block'
+
+      const div = document.createElement('div')
+      div.setAttribute('class', 'firebaseui-container mdl-card mdl-shadow--2dp' ) 
+      div.style.padding = '1em'
+
+      const header = document.createElement( 'h1' )
+      header.setAttribute( 'class', 'firebaseui-title' )
+      header.innerText = 'Select a file to load.'
+
+      const list = document.createElement( 'ul' )
+      for( let name in this.user.files ) {
+        const sketch = this.user.files[ name ]
+        const li = document.createElement( 'li' )
+        li.innerText = sketch.sketch
+        li.style = 'cursor:pointer; text-decoration:underline'
+        li.onclick = function()  {
+          app.importFile( sketch.sketch )
+          auth.innerHTML = ''
+          auth.style.display = 'none'
+        }
+
+        list.appendChild( li )
+      }
+
+      div.appendChild( header )
+      div.appendChild( list )
+      auth.appendChild( div )
+    }else{
+      alert( 'please login before trying to load files.' )
+    }
+  }
+
+  importFile( filename ) {
+    // orderByChild( 'user' ).equalTo( this.user.email ).
+    this.db.ref(`/sketches/${filename}`).once('value').then( state => {
+      const json = state.val() 
+      let loader = new THREE.ObjectLoader();
+      const cam = loader.parse(json.camera);
+
+      const importedData = {}
+      json.files.forEach( file => {
+        importedData[ file.name ] = file.data
+      })
+
+      if( json.soundObjects !== undefined ) {
+        json.soundObjects.forEach(obj => {
+          let parsed = JSON.parse(obj);
+
+          let newObj = this.path.createObject(this, true);
+          newObj.fromJSON(obj, importedData, false);
+          this.setActiveObject(newObj);
+          this.isAddingObject = false;
+
+          // Trajectory
+          if (parsed.trajectory) {
+            this.path.points = parsed.trajectory.map(i => new THREE.Vector3(i.x, i.y, i.z));
+            this.path.parentObject = newObj;
+            this.path.createObject(this, true);
+            newObj.calculateMovementSpeed();
+          }
+        });
+      }
+
+      if( json.soundZones !== undefined ) {
+        json.soundZones.forEach(obj => {
+          var object = JSON.parse(obj);
+
+          // Fakes drawing for zone creation
+          this.path.points = object.points;
+
+          let newObj = this.path.createObject(this, true);
+          newObj.fromJSON(obj, importedData);
+
+          this.setActiveObject(newObj);
+          this.isAddingObject = false;
+        });
+      }
+
+      this.setActiveObject(null);
+      this.camera.threeCamera.copy(cam);
+      this.camera.threeCamera.updateProjectionMatrix();
+    })
+  }
+
+  __import(data) {
     const zipHelper = this.zipHelper;
     var files = {};
     var promises = [];

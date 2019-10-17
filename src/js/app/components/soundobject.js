@@ -3,6 +3,7 @@ import 'whatwg-fetch';
 
 import Config from '../../data/config';
 import Helpers from '../../utils/helpers';
+import {encode, decode} from 'base64-arraybuffer';
 
 export default class SoundObject {
   constructor(main) {
@@ -155,80 +156,92 @@ export default class SoundObject {
     }
   }
 
-  loadSound(file, audio, mute, object) {
+  decode( decoded, object, audio, mute, resolve ) {
     const context = audio.context;
     const mainMixer = context.createGain();
-    let reader = new FileReader();
-    var sound = {};
+    const sound = {};
 
+    context.decodeAudioData(decoded, function(decodedData) {
+      if (object && object.type === 'SoundObject') {
+        /* attach omnidirectional sound */
+        object = object.omniSphere;
+      }
+
+      if (object && object.sound) {
+        object.sound.source.stop();
+        object.sound.source.disconnect(object.sound.scriptNode);
+        object.sound.scriptNode.disconnect(context.destination);
+      }
+
+      sound.mainMixer = mainMixer;
+
+      sound.analyser = context.createAnalyser();
+      sound.analyser.smoothingTimeConstant = 0.5;
+      sound.analyser.fftSize = 1024;
+
+      sound.scriptNode = context.createScriptProcessor(2048, 1, 1);
+      sound.scriptNode.connect(context.destination);
+
+      sound.source = context.createBufferSource();
+      sound.source.loop = true;
+      sound.source.connect(sound.scriptNode);
+
+      sound.panner = context.createPanner();
+      sound.panner.panningModel = 'HRTF';
+      sound.panner.distanceModel = 'inverse';
+      sound.panner.refDistance = 100;
+
+      // sound.panner.rolloffFactor = 5;
+
+      sound.volume = context.createGain();
+      sound.source.connect(sound.volume);
+      sound.volume.connect(sound.analyser);
+      sound.volume.connect(sound.panner);
+      sound.panner.connect(mainMixer);
+      mainMixer.connect(audio.destination);
+      mainMixer.gain.value = mute ? 0 : 1;
+
+      sound.source.buffer = decodedData;
+      sound.source.start(context.currentTime + 0.020);
+
+      if (object && object.name === 'omniSphere') {
+        sound.scriptNode.onaudioprocess = () => {
+          const array = new Uint8Array(sound.analyser.frequencyBinCount);
+          sound.analyser.getByteFrequencyData(array);
+          let values = 0;
+          const length = array.length;
+          for (let i = 0; i < length; i++) values += array[i];
+          const average = values / length;
+          object.material.opacity = Helpers.mapRange(average, 50, 100, 0.65, 0.95);
+        };
+      }
+
+      resolve(sound);
+    });
+  }
+
+  loadSound(file, audio, mute, object, fromGUI=true) {
     if (object) { // cones can be null at this point
       object.filename = file.name;
       object.file = file;
     }
 
-    let promise = new Promise(function(resolve, reject) {
-      reader.onload = (ev) => {
-        context.decodeAudioData(ev.target.result, function(decodedData) {
-          if (object && object.type === 'SoundObject') {
-            /* attach omnidirectional sound */
-            object = object.omniSphere;
-          }
-
-          if (object && object.sound) {
-            object.sound.source.stop();
-            object.sound.source.disconnect(object.sound.scriptNode);
-            object.sound.scriptNode.disconnect(context.destination);
-          }
-
-          sound.mainMixer = mainMixer;
-
-          sound.analyser = context.createAnalyser();
-          sound.analyser.smoothingTimeConstant = 0.5;
-          sound.analyser.fftSize = 1024;
-
-          sound.scriptNode = context.createScriptProcessor(2048, 1, 1);
-          sound.scriptNode.connect(context.destination);
-
-          sound.source = context.createBufferSource();
-          sound.source.loop = true;
-          sound.source.connect(sound.scriptNode);
-
-          sound.panner = context.createPanner();
-          sound.panner.panningModel = 'HRTF';
-          sound.panner.distanceModel = 'inverse';
-          sound.panner.refDistance = 100;
-
-          // sound.panner.rolloffFactor = 5;
-
-          sound.volume = context.createGain();
-          sound.source.connect(sound.volume);
-          sound.volume.connect(sound.analyser);
-          sound.volume.connect(sound.panner);
-          sound.panner.connect(mainMixer);
-          mainMixer.connect(audio.destination);
-          mainMixer.gain.value = mute ? 0 : 1;
-
-          sound.source.buffer = decodedData;
-          sound.source.start(context.currentTime + 0.020);
-
-          if (object && object.name === 'omniSphere') {
-            sound.scriptNode.onaudioprocess = () => {
-              const array = new Uint8Array(sound.analyser.frequencyBinCount);
-              sound.analyser.getByteFrequencyData(array);
-              let values = 0;
-              const length = array.length;
-              for (let i = 0; i < length; i++) values += array[i];
-              const average = values / length;
-              object.material.opacity = Helpers.mapRange(average, 50, 100, 0.65, 0.95);
-            };
-          }
-
-          resolve(sound);
-        });
-      };
-
-      reader.readAsArrayBuffer(file);
-    });
+    const that = this
+    const promise = new Promise(function(resolve, reject) {
+      // if loading from file import, decode the base64 array
+      if( fromGUI === false ) {
+        // remove header && decode
+        const decoded = decode( file.slice(22) );
+        that.decode( decoded, object, audio, mute, resolve );
+      }else{
+        const reader = new FileReader();
+        reader.onload = ev => {
+          that.decode( ev.target.result, object, audio, mute, resolve );
+        }
+        reader.readAsArrayBuffer( file );
+      }
+        
+    })
 
     return promise;
   }
@@ -573,7 +586,7 @@ export default class SoundObject {
     });
   }
 
-  fromJSON(json, importedData) {
+  fromJSON(json, importedData, fromGUI=true) {
     const object = JSON.parse(json);
     this.containerObject.position.copy(object.position);
     this.altitudeHelper.position.copy(object.position);
@@ -583,7 +596,7 @@ export default class SoundObject {
     if (object.filename && object.volume) {
       const file = importedData[object.filename];
       if (file) {
-        this.loadSound(file, this.audio, false, this).then((sound) => {
+        this.loadSound(file, this.audio, false, this, fromGUI).then((sound) => {
           this.omniSphere.sound = sound;
           this.omniSphere.sound.name = object.filename;
           this.omniSphere.sound.volume.gain.value = object.volume;
@@ -596,7 +609,7 @@ export default class SoundObject {
       let cone;
       const file = importedData[c.filename];
       if (file) {
-        this.loadSound(file, this.audio, false).then((sound) => {
+        this.loadSound(file, this.audio, false, fromGUI).then((sound) => {
           cone = this.createCone(sound, c.color);
           cone.file = file;
           cone.filename = c.filename;
