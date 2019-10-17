@@ -265,7 +265,9 @@ input[type='file'] {
   display: none; }
 
 #save {
-}
+  position: absolute;
+  bottom: 10px;
+  left: 15px; }
 
 #save img {
   cursor: pointer;
@@ -275,7 +277,9 @@ input[type='file'] {
 
 #load {
   z-index: 2;
-}
+  position: absolute;
+  bottom: 10px;
+  left: 45px; }
 
 #load img {
   cursor: pointer;
@@ -307,23 +311,3 @@ input[type='file'] {
   font-family: roboto, 'helvetica neue', helvetica, arial, sans-serif;
   line-height: 1.25em;
   pointer-events: none; }
-
-#account {
-  position: absolute;
-  bottom: 25px;
-  left: 15px; 
-  display:inline
-}
-
-#account ul li {
-  display:inline;
-  margin-right:1em;
-  cursor:pointer;
-  z-index:100;
-}
-
-#auth {
-  display:none;
-  background:white;
-  z-index:100;
-}
