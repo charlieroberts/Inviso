@@ -27,7 +27,7 @@ import Helpers from './../utils/helpers';
 import firebase from 'firebase/app';
 import "firebase/auth";
 import "firebase/database";
-import "firebase/firestore";
+import "firebase/storage";
 import * as firebaseui from 'firebaseui'
 
 // Local vars for rStats
@@ -345,7 +345,7 @@ export default class Main {
       apiKey: "AIzaSyBFFzD5c8fABhevN6FSW70biNNEj_cTvQI",
       authDomain: "bosear-test.firebaseapp.com",
       databaseURL: "https://bosear-test.firebaseio.com",
-      storageBucket: "bosear-test.appspot.com"
+      storageBucket: "gs://bosear-test.appspot.com"
     };
 
     this.firebase = firebase.initializeApp(config);
@@ -354,6 +354,7 @@ export default class Main {
     })
     firebase.auth().onAuthStateChanged( user => {
       this.db = firebase.database();
+      this.storageref = firebase.storage().ref()
       this.ref = this.db.ref('/sketches')
       this.ref.on('value', state => {
         //console.log( 'state:', state.val() )
@@ -387,6 +388,7 @@ export default class Main {
     this.authui.start('#auth', uiConfig);
     firebase.auth().onAuthStateChanged( user => {
       if( user !== null && user.email !== null ) {
+        console.log( user )
         this.user = {
           email: user.email,
           authenticated:true
@@ -395,7 +397,6 @@ export default class Main {
         
         app.db.ref('/sketchesByUser').orderByChild( 'user' ).equalTo( user.email ).on( 'value', data => {
           this.user.files = data.val()
-          console.log( 'files:', this.user.files )
         })
 
         const loginBtn = document.getElementById('login')
@@ -947,11 +948,8 @@ export default class Main {
       return
     }
     const that = this
+    const app  = this
     const files = []
-    const addFile = file => {
-      const fileExists = files.map(f => f.name).includes(file.name);
-      if (!fileExists) files.push(file);
-    };
 
     const exportJSON = {
       camera: that.camera.threeCamera.toJSON(),
@@ -967,21 +965,26 @@ export default class Main {
       soundZones: that.soundZones.map((obj) => {
         if (obj.file) addFile(obj.file);
         return obj.toJSON();
-      }),
-      files:[]
+      })
     }
+
+    function addFile(file) {
+      const fileExists = files.map(f => f.name).includes(file.name);
+      if (!fileExists) files.push( file.name );
+      const fileRef = app.storageref.child( `${app.user.email}/${file.name}` );
+      fileRef.put( file ) 
+    };
+
+    exportJSON.files = files
 
     let count = 0, target = files.length
 
     const finish = function( str, file ) {
-      exportJSON.files.push({
-        name:file.name,
-        data:str
-      })
+      //exportJSON.files.push( file.name )
       exportJSON.user = that.user.email
 
-      count++
-      if( count === target ) {
+      //count++
+      //if( count === target ) {
         const auth = document.getElementById('auth')
         auth.style.display = 'block'
 
@@ -1026,21 +1029,22 @@ export default class Main {
 
         input.focus()
         that.interactionManager.active = false
-      }
+      //}
     }
 
-    for( let file of files ) {
-      if( file.data === undefined ) {
-        const reader = new FileReader();
-        reader.readAsDataURL( file ); 
-        reader.onloadend = () => {
-          const base64data = reader.result;
-          finish( base64data, file )          
-        }
-      }else{
-        finish( file.data, file )
-      }
-    }
+    finish()
+    //for( let file of files ) {
+      //if( file.data === undefined ) {
+      //  const reader = new FileReader();
+      //  reader.readAsDataURL( file ); 
+      //  reader.onloadend = () => {
+      //    const base64data = reader.result;
+      //    finish( base64data, file )          
+      //  }
+      //}else{
+      //  finish( file.data, file )
+      //}
+    //}
 
     // XXX get rid of this after testing
     window.files = files
@@ -1119,7 +1123,7 @@ export default class Main {
         li.style = 'cursor:pointer; text-decoration:underline'
         li.onclick = function()  {
           app.clear()
-          app.importFile( sketch.sketch )
+          app.importSketch( sketch.sketch )
           auth.innerHTML = ''
           auth.style.display = 'none'
         }
@@ -1135,55 +1139,73 @@ export default class Main {
     }
   }
 
-  importFile( filename ) {
+  importSketch( filename ) {
     // orderByChild( 'user' ).equalTo( this.user.email ).
+    const app = this
     this.db.ref(`/sketches/${filename}`).once('value').then( state => {
       const json = state.val() 
       let loader = new THREE.ObjectLoader();
       const cam = loader.parse(json.camera);
 
       const importedData = {}
+      const storage = firebase.storage()
+      let count = 0
       json.files.forEach( file => {
-        importedData[ file.name ] = file
+        //importedData[ file.name ] = file
+        const pathReference = storage.ref(`${app.user.email}/${file}`);
+        const urlPromise = pathReference.getDownloadURL().then( url => {
+          console.log( 'url:', url )
+          fetch( url, { method:'GET' } )
+            .then( data => data.arrayBuffer() )
+            .then( buffer => {
+              console.log( 'buffer!', file, buffer )
+              importedData[ file ] = buffer
+              count++
+              if( count === json.files.length ) finish()
+            })
+        })
       })
 
-      if( json.soundObjects !== undefined ) {
-        json.soundObjects.forEach(obj => {
-          let parsed = JSON.parse(obj);
+      function finish() {
+        console.log( 'got it!', importedData )
+        if( json.soundObjects !== undefined ) {
+          json.soundObjects.forEach(obj => {
+            let parsed = JSON.parse(obj);
 
-          let newObj = this.path.createObject(this, true);
-          newObj.fromJSON(obj, importedData, false );
-          this.setActiveObject(newObj);
-          this.isAddingObject = false;
+            let newObj = app.path.createObject( app, true);
+            newObj.fromJSON(obj, importedData, true );
+            app.setActiveObject(newObj);
+            app.isAddingObject = false;
 
-          // Trajectory
-          if (parsed.trajectory) {
-            this.path.points = parsed.trajectory.map(i => new THREE.Vector3(i.x, i.y, i.z));
-            this.path.parentObject = newObj;
-            this.path.createObject(this, true);
-            newObj.calculateMovementSpeed();
-          }
-        });
+            // Trajectory
+            if (parsed.trajectory) {
+              app.path.points = parsed.trajectory.map(i => new THREE.Vector3(i.x, i.y, i.z));
+              app.path.parentObject = newObj;
+              app.path.createObject(this, true);
+              newObj.calculateMovementSpeed();
+            }
+          });
+        }
+
+        if( json.soundZones !== undefined ) {
+          json.soundZones.forEach(obj => {
+            var object = JSON.parse(obj);
+
+            // Fakes drawing for zone creation
+            this.path.points = object.points;
+
+            let newObj = this.path.createObject(this, true);
+            newObj.fromJSON(obj, importedData);
+
+            this.setActiveObject(newObj);
+            this.isAddingObject = false;
+          });
+        }
+
+        app.setActiveObject(null);
+        app.camera.threeCamera.copy(cam);
+        app.camera.threeCamera.updateProjectionMatrix();
       }
-
-      if( json.soundZones !== undefined ) {
-        json.soundZones.forEach(obj => {
-          var object = JSON.parse(obj);
-
-          // Fakes drawing for zone creation
-          this.path.points = object.points;
-
-          let newObj = this.path.createObject(this, true);
-          newObj.fromJSON(obj, importedData);
-
-          this.setActiveObject(newObj);
-          this.isAddingObject = false;
-        });
-      }
-
-      this.setActiveObject(null);
-      this.camera.threeCamera.copy(cam);
-      this.camera.threeCamera.updateProjectionMatrix();
     })
   }
 

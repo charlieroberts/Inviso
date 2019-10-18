@@ -202,6 +202,7 @@ export default class SoundObject {
       mainMixer.connect(audio.destination);
       mainMixer.gain.value = mute ? 0 : 1;
 
+      console.log( 'decoded data:' ,decodedData )
       sound.source.buffer = decodedData;
       sound.source.start(context.currentTime + 0.020);
 
@@ -235,11 +236,12 @@ export default class SoundObject {
         const decoded = decode( file.data.slice(22), file.name );
         that.decode( decoded, object, audio, mute, resolve );
       }else{
-        const reader = new FileReader();
-        reader.onload = ev => {
-          that.decode( ev.target.result, object, audio, mute, resolve );
-        }
-        reader.readAsArrayBuffer( file );
+        //const reader = new FileReader();
+        //reader.onload = ev => {
+        //  that.decode( ev.target.result, object, audio, mute, resolve );
+        //}
+        //reader.readAsArrayBuffer( file );
+        that.decode( file, object, audio, mute, resolve );
       }
         
     })
