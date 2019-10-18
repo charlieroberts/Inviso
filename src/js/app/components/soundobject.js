@@ -173,7 +173,7 @@ export default class SoundObject {
         object.sound.scriptNode.disconnect(context.destination);
       }
 
-      sound.filename = name
+      sound.filename = name;
       sound.mainMixer = mainMixer;
 
       sound.analyser = context.createAnalyser();
@@ -202,7 +202,6 @@ export default class SoundObject {
       mainMixer.connect(audio.destination);
       mainMixer.gain.value = mute ? 0 : 1;
 
-      console.log( 'decoded data:' ,decodedData )
       sound.source.buffer = decodedData;
       sound.source.start(context.currentTime + 0.020);
 
@@ -223,10 +222,10 @@ export default class SoundObject {
   }
 
   loadSound(file, audio, mute, object, fromGUI=true) {
-    if (object) { // cones can be null at this point
-      object.filename = file.name;
-      object.file = file;
-    }
+    //if (object) { // cones can be null at this point
+    //  object.filename = file.name;
+    //  object.file = file;
+    //}
 
     const that = this
     const promise = new Promise(function(resolve, reject) {
@@ -236,12 +235,15 @@ export default class SoundObject {
         const decoded = decode( file.data.slice(22), file.name );
         that.decode( decoded, object, audio, mute, resolve );
       }else{
-        //const reader = new FileReader();
-        //reader.onload = ev => {
-        //  that.decode( ev.target.result, object, audio, mute, resolve );
-        //}
-        //reader.readAsArrayBuffer( file );
-        that.decode( file, object, audio, mute, resolve );
+        if( Object.getPrototypeOf( file ) === ArrayBuffer.prototype ) {
+          that.decode( file, object, audio, mute, resolve );
+        }else{
+          const reader = new FileReader();
+          reader.onload = ev => {
+            that.decode( ev.target.result, object, audio, mute, resolve );
+          }
+          reader.readAsArrayBuffer( file );
+        }
       }
         
     })
