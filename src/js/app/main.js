@@ -364,12 +364,15 @@ export default class Main {
   }
 
   login() {
+    const app = this
     const auth = document.getElementById('auth')
     auth.style.display = 'block'
 
+    this.interactionManager.active = false 
     var uiConfig = {
       callbacks: {
         signInSuccessWithAuthResult: function(authResult, redirectUrl) {
+          app.interactionManager.active = true
           return false;
         }
       },
@@ -381,7 +384,6 @@ export default class Main {
         }
       ],
     }
-    const app = this
     if( this.authui === null ) {
       this.authui = new firebaseui.auth.AuthUI(firebase.auth())
     }
@@ -1154,11 +1156,9 @@ export default class Main {
         //importedData[ file.name ] = file
         const pathReference = storage.ref(`${app.user.email}/${file}`);
         const urlPromise = pathReference.getDownloadURL().then( url => {
-          console.log( 'url:', url )
           fetch( url, { method:'GET' } )
             .then( data => data.arrayBuffer() )
             .then( buffer => {
-              console.log( 'buffer!', file, buffer )
               importedData[ file ] = buffer
               count++
               if( count === json.files.length ) finish()
@@ -1167,7 +1167,6 @@ export default class Main {
       })
 
       function finish() {
-        console.log( 'got it!', importedData )
         if( json.soundObjects !== undefined ) {
           json.soundObjects.forEach(obj => {
             let parsed = JSON.parse(obj);
@@ -1181,7 +1180,7 @@ export default class Main {
             if (parsed.trajectory) {
               app.path.points = parsed.trajectory.map(i => new THREE.Vector3(i.x, i.y, i.z));
               app.path.parentObject = newObj;
-              app.path.createObject(this, true);
+              app.path.createObject(app, true);
               newObj.calculateMovementSpeed();
             }
           });
