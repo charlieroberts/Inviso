@@ -592,7 +592,7 @@ export default class SoundObject {
   }
 
   fromJSON(json, importedData, fromGUI=true ) {
-    const object = JSON.parse(json);
+    const object = json //JSON.parse(json);
     this.containerObject.position.copy(object.position);
     this.altitudeHelper.position.copy(object.position);
     this.raycastSphere.position.copy(object.position);
@@ -610,23 +610,25 @@ export default class SoundObject {
       }
     }
 
-    object.cones.forEach((c) => {
-      let cone;
-      const file = importedData[c.filename];
-      if (file) {
-        this.loadSound(file, this.audio, false, fromGUI).then((sound) => {
-          cone = this.createCone(sound, c.color);
-          cone.file = file;
-          cone.filename = c.filename;
-          cone.sound.volume.gain.value = c.volume;
-          cone.sound.spread = c.spread;
-          this.changeLength(cone);
-          this.changeWidth(cone);
-          this.gui.addCone(cone);
-          this.pointConeMagic(cone, c.position.lat, c.position.long);
-        });
-      }
-    });
+    if( object.cones !== undefined ) {
+      object.cones.forEach((c) => {
+        let cone;
+        const file = importedData[c.filename];
+        if (file) {
+          this.loadSound(file, this.audio, false, fromGUI).then((sound) => {
+            cone = this.createCone(sound, c.color);
+            cone.file = file;
+            cone.filename = c.filename;
+            cone.sound.volume.gain.value = c.volume;
+            cone.sound.spread = c.spread;
+            this.changeLength(cone);
+            this.changeWidth(cone);
+            this.gui.addCone(cone);
+            this.pointConeMagic(cone, c.position.lat, c.position.long);
+          });
+        }
+      });
+    }
 
     this.movementSpeed = object.movementSpeed;
   }

@@ -1172,7 +1172,7 @@ export default class Main {
       function finish() {
         if( json.soundObjects !== undefined ) {
           json.soundObjects.forEach(obj => {
-            let parsed = JSON.parse(obj);
+            //let parsed = JSON.parse(obj);
 
             let newObj = app.path.createObject( app, true);
             newObj.fromJSON(obj, importedData, true );
@@ -1180,8 +1180,8 @@ export default class Main {
             app.isAddingObject = false;
 
             // Trajectory
-            if (parsed.trajectory) {
-              app.path.points = parsed.trajectory.map(i => new THREE.Vector3(i.x, i.y, i.z));
+            if (obj.trajectory) {
+              app.path.points = obj.trajectory.map(i => new THREE.Vector3(i.x, i.y, i.z));
               app.path.parentObject = newObj;
               app.path.createObject(app, true);
               newObj.calculateMovementSpeed();

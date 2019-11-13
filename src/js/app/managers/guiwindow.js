@@ -151,13 +151,17 @@ export default class GUIWindow {
         }
       }
 
+      // XXX this needs to be run in order to change the file from a loaded soundscape, but currently
+      // the .name prroperty is undefined for the sound
+      
       this.addParameter({
           property: 'File',
-          value: object.omniSphere.sound ? object.omniSphere.sound.name.split('/').pop() : 'None',
+          value: object.omniSphere.sound && object.omniSphere.sound.name ? object.omniSphere.sound.name.split('/').pop() : 'None',
           type: 'file-input',
           display: object.omniSphere.sound,
           events: [{ type: 'click', callback: this.addSound.bind(this) }]
       },elem).id = "omnisphere-sound-loader";
+      
 
       this.addParameter({
           property: 'Volume',
