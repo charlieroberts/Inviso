@@ -222,10 +222,10 @@ export default class SoundObject {
   }
 
   loadSound(file, audio, mute, object, fromGUI=true) {
-    //if (object) { // cones can be null at this point
-    //  object.filename = file.name;
-    //  object.file = file;
-    //}
+    if (object) { // cones can be null at this point
+      object.filename = file.name;
+      object.file = file;
+    }
 
     const that = this
     const promise = new Promise(function(resolve, reject) {

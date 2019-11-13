@@ -361,6 +361,7 @@ export default class Main {
       })
       //this.db.ref('/users').once('value').then( state => console.log( state.val() ) )
     })
+    this.currentSketch = null
   }
 
   login() {
@@ -973,7 +974,6 @@ export default class Main {
     function addFile(file) {
       const fileExists = files.map(f => f.name).includes(file.name);
       if (!fileExists) files.push( file.name );
-      console.log( 'name:', file.name )
       const fileRef = app.storageref.child( `${app.user.email}/${file.name}` );
       fileRef.put( file ) 
     };
@@ -1000,10 +1000,11 @@ export default class Main {
         header.innerText = 'Type in a name for your sketch.'         
 
         const input = document.createElement('input')
-        input.value = 'sketch name'
+        input.value = app.currentSketch !== null ? app.currentSketch : 'sketch name'
         input.setAttribute( 'class', 'mdl-textfield__input firebaseui-input' ) 
         input.addEventListener( 'keyup', evt => {
           if( evt.key === 'Enter' ) {
+            app.currentSketch = input.value
             that.db.ref(`/sketches/${input.value}`).set( exportJSON )
             that.db.ref('/sketchesByUser').orderByChild( 'user' ).equalTo( that.user.email ).once( 'value', data => {
               const val = data.val()
@@ -1018,6 +1019,7 @@ export default class Main {
                 that.db.ref(`/sketchesByUser/` + newPostKey).set({ sketch:input.value, user:that.user.email })
               }
             })
+            
             auth.innerHTML = ''
             auth.style.display = 'none'
             that.interactionManager.active = true
@@ -1202,6 +1204,7 @@ export default class Main {
           });
         }
 
+        app.currentSketch = filename
         app.setActiveObject(null);
         app.camera.threeCamera.copy(cam);
         app.camera.threeCamera.updateProjectionMatrix();
