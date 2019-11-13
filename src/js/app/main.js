@@ -955,24 +955,25 @@ export default class Main {
 
     const exportJSON = {
       camera: that.camera.threeCamera.toJSON(),
-      soundObjects: that.soundObjects.map((obj) => {
+      soundObjects: that.soundObjects.map( obj => {
         if (obj.file) addFile(obj.file);
 
         obj.cones.forEach((c) => {
           if (c.file) addFile(c.file);
         });
 
-        return obj.toJSON();
+        return JSON.parse( obj.toJSON() );
       }),
-      soundZones: that.soundZones.map((obj) => {
-        if (obj.file) addFile(obj.file);
-        return obj.toJSON();
-      })
+      soundZones: null,//that.soundZones//that.soundZones.map((obj) => {
+      //  if (obj.file) addFile(obj.file);
+      //  return obj.toJSON();
+      //})
     }
 
     function addFile(file) {
       const fileExists = files.map(f => f.name).includes(file.name);
       if (!fileExists) files.push( file.name );
+      console.log( 'name:', file.name )
       const fileRef = app.storageref.child( `${app.user.email}/${file.name}` );
       fileRef.put( file ) 
     };
